@@ -23,11 +23,7 @@ def findcommonsuffix (s1, s2):
 		length = len(s2)
 	for i in range(-1,-1*length-1,-1):
 		if s1[i] != s2[i]:
-			if s1.endswith("ught"):
-				print "a", s1, s2, s1[i+1:], length
 			return s1[i+1:]
-	if s1.endswith("ught"):
-		print "b", s1,s2,s1[-1*length:], length
 	return s1[-1*length:]
  
 #--------------------------------------------------------------------##
@@ -50,11 +46,8 @@ from collections import defaultdict
 #--------------------------------------------------------------------##
 g_encoding =  "asci"  # "utf8"
  
-SFthreshold = 4
+SFthreshold = 0
 
-short_filename 		= "english"
-out_short_filename 	= "english"
-language		= "english"
 
 short_filename 		= "french"
 out_short_filename 	= "french"
@@ -63,6 +56,10 @@ language		= "french"
 short_filename 		= "swahili"
 out_short_filename 	= "swahili"
 language		= "swahili"
+
+short_filename 		= "english2"
+out_short_filename 	= "english2"
+language		= "english"
 
 
 datafolder    		= "../../data/" 
@@ -74,14 +71,21 @@ stemfilename 			= infolder  + short_filename     + "_stems.txt"
 outfile_FSA_name		= outfolder + out_short_filename + "_FSA.txt"
 outfile_FSA_graphics_name	= outfolder + out_short_filename + "_FSA_graphics.png"
 outfile_log_name 		= outfolder + out_short_filename + "_log.txt"
-outfile_trie_name 		= outfolder + out_short_filename + "_trie.txt"
+ 
 outfile_SF_name 		= outfolder + out_short_filename + "_SF.txt"
+outfile_trieLtoR_name 		= outfolder + out_short_filename + "_trieLtoR.txt"
+ 
+outfile_trieRtoL_name 		= outfolder + out_short_filename + "_trieRtoL.txt"
+outfile_PF_name 		= outfolder + out_short_filename + "_PF.txt"
+
 if g_encoding == "utf8":
 	print "yes utf8"
 else:
 	FSA_outfile = open (outfile_FSA_name, mode = 'w')
-	trie_outfile = open (outfile_trie_name, mode = 'w')
+	trieLtoR_outfile = open (outfile_trieLtoR_name, mode = 'w')
+	trieRtoL_outfile = open (outfile_trieRtoL_name, mode = 'w')
 	SF_outfile =  open (outfile_SF_name, mode = 'w')
+	PF_outfile =  open (outfile_PF_name, mode = 'w')
 log_file = open(outfile_log_name, "w")
 
 
@@ -100,7 +104,7 @@ else:
  
 
   
-MinimumStemLength 	= 5
+MinimumStemLength 	= 4
 MaximumAffixLength 	= 3
 MinimumNumberofSigUses 	= 10
 
@@ -130,103 +134,163 @@ for line in filelines:
 	 
 wordlist = WordCounts.keys()
 wordlist.sort()
+reversedwordlist = list()
+
+#this weird stuff is here because python changes the underlying string unless you make a deep copy
+TempReversedWords = list()
+for word in wordlist:
+	wordcopy = word[:]
+	wordcopy = wordcopy[::-1]
+	TempReversedWords.append(wordcopy)
+TempReversedWords.sort()
+for word in TempReversedWords:
+	wordcopy = word[:]
+	wordcopy = wordcopy[::-1]
+	reversedwordlist.append(wordcopy)
+			
 
 
-
-
-WordsBroken=dict()
-bl = dict() #breaklist
+WordsBrokenLtoR=dict()
+WordsBrokenRtoL=dict()
+bl_LtoR = dict() #breaklist
+bl_RtoL = dict() #breaklist
 for i in range(len(wordlist)):
-	bl[i]=set()
+	bl_LtoR[i]=set()
+	bl_RtoL[i]=set()
 FoundPrefixes = dict()
 FoundSuffixes = dict()
-ReversedWords = list()
-if side == "prefix":
-	reversedWords = list()
-	for word in wordlist:
-		ReversedWords.append(word[::-1])
-	ReversedWords.sort()
-	wordlist = list()
-	for word in ReversedWords:
-		wordlist.append(word[::-1])
+ 
+ 
+#--------------------------------------------------------------------##
+#		Find breaks in words: L to R
+#--------------------------------------------------------------------##
+
 previousword = wordlist[0]
 for i in range(1,len(wordlist)):
 	thisword= wordlist[i]	 
 	thislength = len(thisword)
-	if side == "suffix":
-		m=lengthofcommonprefix(previousword,thisword)
+	m=lengthofcommonprefix(previousword,thisword)
 		
-		if m < MinimumStemLength:
-			previousword=thisword
-			continue
-		commonprefix = thisword[:m]
-		
-
-		if commonprefix in FoundPrefixes:
-			previousword=thisword
-			continue	
-		else: 
-			for j in range(i-1,0,-1):
-				if wordlist[j][:m] == commonprefix:
-					bl[j].add(m)
-				else:
-					break
-			for j in range(i,len(wordlist)):
-				if wordlist[j][:m] == commonprefix:
-					bl[j].add(m)
-				else:
-					break
-	 	 	FoundPrefixes[commonprefix] = 1
+	if m < MinimumStemLength:
 		previousword=thisword
-	elif side=="prefix":
-		commonsuffix = findcommonsuffix(previousword,thisword)
-		csl= len(commonsuffix)
- 
-		if csl < MinimumStemLength:
-			previousword=thisword			
-			continue
+		continue
+	commonprefix = thisword[:m]
+	if (len (commonprefix) < MinimumStemLength):
+		print "182 What??", thisword	
+
+	if commonprefix in FoundPrefixes:
+		previousword=thisword
+		continue	
+	else: 
+		for j in range(i-1,0,-1):
+			if wordlist[j][:m] == commonprefix and m>=MinimumStemLength:
+				bl_LtoR[j].add(m)
+			else:
+				break
+		for j in range(i,len(wordlist)):
+			if wordlist[j][:m] == commonprefix and m>=MinimumStemLength:
+				bl_LtoR[j].add(m)
+			else:
+				break
+	 	FoundPrefixes[commonprefix] = 1
+	previousword=thisword
+#--------------------------------------------------------------------##
+#		Find breaks in words:R to L
+#--------------------------------------------------------------------##
+
+
+if (True):
 	
+	
+
+	for i in range(1,len(reversedwordlist)):
+		thisword= reversedwordlist[i]	 
+		thislength = len(thisword)
+
+		commonsuffix = findcommonsuffix(previousword,thisword)
+		
+		csl= len(commonsuffix)
+		if csl < MinimumStemLength:
+			previousword=thisword		
+			continue
+		#print ">", thisword, previousword, commonsuffix
+
 		if commonsuffix in FoundSuffixes:
 			previousword=thisword
 			continue	
 		else: 
 			for j in range(i-1,0,-1):
-				if wordlist[j].endswith(commonsuffix):
-					prefixlength = len(wordlist[j])-csl
-					bl[j].add(prefixlength)
+				if reversedwordlist[j].endswith(commonsuffix):
+					#print ":", reversedwordlist[j] ,
+					prefixlength = len(reversedwordlist[j])-csl
+					bl_RtoL[j].add(prefixlength)
 				else:
 					break
-			for j in range(i,len(wordlist)):
-				if wordlist[j].endswith(commonsuffix):
-					prefixlength = len(wordlist[j])-csl
-					bl[j].add(prefixlength)
+			for j in range(i,len(reversedwordlist)):
+				if reversedwordlist[j].endswith(commonsuffix):
+					prefixlength = len(reversedwordlist[j])-csl
+					bl_RtoL[j].add(prefixlength)
+					#print ":", reversedwordlist[j], reversedwordlist[j][:prefixlength]
 				else:
 					break
-	 	 	FoundSuffixes[commonsuffix] = 1
+			 	FoundSuffixes[commonsuffix] = 1
 		previousword=thisword
+		#print
+#--------------------------------------------------------------------##
+#		Break up each word L to R
+#--------------------------------------------------------------------##
 
-
-maxnumberofpieces = 0
+maxnumberofpiecesLtoR = 0
 for i in range(len(wordlist)):
 	thisword= wordlist[i]
-	WordsBroken[thisword]=list()
-	bl[i] = list(bl[i])
-	bl[i].sort()
+	WordsBrokenLtoR[thisword]=list()
+	bl_LtoR[i] = list(bl_LtoR[i])
+	bl_LtoR[i].sort()
 	output = ""
-	if len(bl[i]) >  0:
+	if len(bl_LtoR[i])==0:
+		WordsBrokenLtoR[thisword].append(thisword)
+	elif len(bl_LtoR[i]) >  0:
 		thispiece=""
 		for x in  range(len(thisword)):
 			output+=thisword[x] 
 			thispiece += thisword[x]
-			if x+1 in bl[i]:
+			if x+1 in bl_LtoR[i]:
 				output += " "
-				WordsBroken[thisword].append(thispiece)
+				WordsBrokenLtoR[thisword].append(thispiece)
 				thispiece=""
 		if len(thispiece)>0:
-			WordsBroken[thisword].append(thispiece)
-	if len(WordsBroken[thisword]) > maxnumberofpieces:
-		maxnumberofpieces = len(WordsBroken[thisword])
+			WordsBrokenLtoR[thisword].append(thispiece)
+	if len(WordsBrokenLtoR[thisword]) > maxnumberofpiecesLtoR:
+		maxnumberofpiecesLtoR = len(WordsBrokenLtoR[thisword])
  
+		
+
+print
+#--------------------------------------------------------------------##
+#		Break up each word R to L
+#--------------------------------------------------------------------##
+if (True):
+	maxnumberofpiecesRtoL = 0
+	for i in range(len(reversedwordlist)):
+		thisword= reversedwordlist[i]	
+		WordsBrokenRtoL[thisword]=list()
+		thisbreaklist = list(bl_RtoL[i])
+		thislength= len(thisbreaklist)
+		thisbreaklist.sort()
+		output = ""
+		if len(thisbreaklist) >  0:
+			thispiece=""
+			for x in range(len(thisword)):
+				output +=thisword[x]  
+				thispiece += thisword[x]  
+				if x+1 in thisbreaklist:
+					output += " "
+					WordsBrokenRtoL[thisword].append(thispiece)
+					thispiece=""
+			if len(thispiece)>0:
+				WordsBrokenRtoL[thisword].append(thispiece)
+		if len(WordsBrokenRtoL[thisword]) > maxnumberofpiecesRtoL:
+			maxnumberofpiecesRtoL = len(WordsBrokenRtoL[thisword])
 		
 
 print
@@ -237,37 +301,36 @@ successors=dict()
 for i in range(len(wordlist)):	
 	wordbeginning = ""	
 	thisword= wordlist[i]
-	thiswordparsed=WordsBroken[thisword]
+	thiswordparsed=WordsBrokenLtoR[thisword]
 	thiswordnumberofpieces = len(thiswordparsed)
-	if side == "suffix":
-		if len(WordsBroken[thisword])==0:
-			successors[thisword]=set()
-			successors[thisword].add("NULL")
-			continue
-		wordbeginning = WordsBroken[thisword][0]
+
+	if len(WordsBrokenLtoR[thisword])==0:
+		successors[thisword]=set()
+		successors[thisword].add("NULL")
+		continue
+	wordbeginning = thiswordparsed[0]
+	if wordbeginning not in successors:
+		successors[wordbeginning]=set()
+	for j in range(1,thiswordnumberofpieces):
+		newpiece = thiswordparsed[j]
 		if wordbeginning not in successors:
 			successors[wordbeginning]=set()
-		if thiswordnumberofpieces == 0:
-			successors[wordbeginning].add("NULL")
-		else:
-			for j in range(1,thiswordnumberofpieces):
-				newpiece = WordsBroken[thisword][j]
-				if wordbeginning not in successors:
-					successors[wordbeginning]=set()
-				successors[wordbeginning].add(newpiece) 
-				wordbeginning += WordsBroken[thisword][j]
-			if wordbeginning not in successors: #whole word, now
-					successors[wordbeginning]=set()
-			successors[wordbeginning].add("NULL")
+		successors[wordbeginning].add(newpiece) 
+		wordbeginning += newpiece
+	if wordbeginning not in successors: #whole word, now
+			successors[wordbeginning]=set()
+	successors[wordbeginning].add("NULL")
+ 
 
 stemlist =  sorted(successors)
 width = 15 
 suffixwidth = 4
 for word  in stemlist:
 	suffixlist = ""
-
+	#print >>SF_outfile, word, successors[word]
 	if len(successors[word]) == 1 and "NULL" in successors[word]: 
 		continue
+	#print >>SF_outfile,word, successors[word]
 	if len(successors[word]) < SFthreshold:
 		continue
 	for suffix in successors[word]:  
@@ -275,67 +338,163 @@ for word  in stemlist:
 	sflength = len(successors[word])
 	print >>SF_outfile, word + " "*(width - len(word)) +  \
 				str(sflength) + " "*(suffixwidth-len(str(sflength)))  + suffixlist
+	#print word + " "*(width - len(word)) +  \
+	#			str(sflength) + " "*(suffixwidth-len(str(sflength)))  + suffixlist
+#---------------------------------------------------------------------------------#	
+#	Calculate predecessor frequency
+#---------------------------------------------------------------------------------# 
+preceders=dict()
+if (True):
+	for i in range(len(reversedwordlist)):	
+		wordend = ""	
+		thisword= reversedwordlist[i]
+		thiswordparsed=WordsBrokenRtoL[thisword]
+		thiswordnumberofpieces = len(thiswordparsed)
+		 
+		if thiswordnumberofpieces==0:
+			preceders[thisword]=set()
+			preceders[thisword].add("NULL")
+			#print "NULL_word:", thisword
+			continue
+		wordend = thiswordparsed[-1]
+		#print thisword,  wordend
+		if wordend not in preceders:
+			preceders[wordend]=set()
+		if thiswordnumberofpieces == 0:
+			preceders[wordend].add("NULL")
+		
+		else:
+			#print "\n369", thisword,thiswordparsed #this is right
+			for j in range(thiswordnumberofpieces-2,-1,-1):
+				newpiece = WordsBrokenRtoL[thisword][j]
+				#print newpiece,
+				if wordend not in preceders:
+					preceders[wordend]=set()
+				preceders[wordend].add(newpiece) 
+				#print "376 new preceder", preceders[wordend], "of" , wordend, "is", newpiece,";" 
+				wordend  = newpiece + wordend
+				#print "378", wordend
+			if wordend not in preceders: #whole word, now
+					preceders[wordend]=set()
+					#print "381", "wordend", wordend
+			preceders[wordend].add("NULL")
+		
+
+	TempReversedStems = list()
+	for morph in preceders:
+		#print >>PF_outfile, "385", morph
+		#print "385", morph
+		#if len(morph) < 4:
+		#	print morph
+		morphcopy = morph[:]
+		morphcopy = morphcopy[::-1]
+		TempReversedStems.append(morphcopy)
+	TempReversedStems.sort()
+	for morph in TempReversedStems:
+		morphcopy = morph[:]
+		morphcopy = morphcopy[::-1]
+		stemlist.append(morphcopy)
+		#print "397", morphcopy	
+		#print >>PF_outfile, "393", morphcopy
+
+	width = 15 
+	prefixwidth = 4
+	for word  in stemlist:
+		prefixlist = ""
+		if word not in preceders:
+			continue
+		if len(preceders[word]) == 1 and "NULL" in preceders[word]: 
+			continue
+		if len(preceders[word]) < SFthreshold:
+			continue
+		for prefix in preceders[word]:  
+			prefixlist += prefix + " "*(width-len(prefix))
+		pflength = len(preceders[word])
+		print >>PF_outfile, word + " "*(width - len(word)) +  \
+					str(pflength) + " "*(prefixwidth-len(str(pflength)))  + prefixlist
+
 
 #---------------------------------------------------------------------------------#	
 #	Formatting
 #---------------------------------------------------------------------------------# 
   
+
+# ------------- Left to Right  ---------------------------------------------
 maxlength = 0
 maxlengthdict= dict()
-for columnno in range(maxnumberofpieces):
+for columnno in range(maxnumberofpiecesLtoR):
 	maxlengthdict[columnno] = 0
 
 # find out how large each morpheme slot needs to be for all the words...
 for i in range(len(wordlist)):	
 	thisword= wordlist[i]
-	thiswordparsed=WordsBroken[thisword]
+	thiswordparsed=WordsBrokenLtoR[thisword]
 	thiswordnumberofpieces = len(thiswordparsed)
-	if side == "suffix":
-		for j in range(thiswordnumberofpieces):
-			thispiece = thiswordparsed[j]
-			if len(thispiece) > maxlengthdict[j]:
-				maxlengthdict[j]= len(thispiece)
-	elif side == "prefix":
-		diff = maxnumberofpieces - len(thiswordparsed)
+	for j in range(thiswordnumberofpieces):
+		thispiece = thiswordparsed[j]
+		if len(thispiece) > maxlengthdict[j]:
+			maxlengthdict[j]= len(thispiece)
+	 
+for i in range(len(wordlist)):
+	thisword= wordlist[i]
+	numberofpieces = len(WordsBrokenLtoR[thisword])
+	if numberofpieces == 0:
+		print >>trieLtoR_outfile, thisword, "number of pieces is zero."
+	else:
+		for j in range(len(WordsBrokenLtoR[thisword])):
+			thispiece = WordsBrokenLtoR[thisword][j]
+			print >>trieLtoR_outfile, thispiece," "*(maxlengthdict[j]-len(thispiece)),
+		print >>trieLtoR_outfile
+ 		
+#----------------- Right to Left --------------------------------------
+
+if (True):
+	# find out how large each morpheme slot needs to be for all the words...
+	for i in range(len(reversedwordlist)):	
+		thisword= wordlist[i]
+		thiswordparsed=WordsBrokenRtoL[thisword]
+		thiswordnumberofpieces = len(thiswordparsed)
+		diff = maxnumberofpiecesRtoL - len(thiswordparsed)
 		for j in range(thiswordnumberofpieces):
 			columnno = diff + j 
 			thispiece = thiswordparsed[j]
 			if len(thispiece) > maxlengthdict[columnno]:
 				maxlengthdict[columnno]= len(thispiece)
-		
+	 
+	for i in range(len(reversedwordlist)):
+		thisword= reversedwordlist[i]
+		brokenword = WordsBrokenRtoL[thisword]
+		numberofpieces = len( brokenword ) 
+#		for j in range( numberofpieces ):
+#			thispiece = WordsBrokenRtoL[thisword][j]
+#			print >>trieRtoL_outfile, thispiece," "*(maxlengthdict[j]-len(thispiece)),
+#		print >>trieRtoL_outfile
 
+		#print >>trieRtoL_outfile, thisword, brokenword, numberofpieces
 
-print "Number of columns: ", maxnumberofpieces
-print maxlengthdict
-for i in range(len(wordlist)):
-	thisword= wordlist[i]
-	numberofpieces = len(WordsBroken[thisword])
-	if numberofpieces == 0: 
-		continue
-	if side == "suffix":
-		for j in range(len(WordsBroken[thisword])):
-			thispiece = WordsBroken[thisword][j]
-			print >>trie_outfile, thispiece," "*(maxlengthdict[j]-len(thispiece)),
-		print >>trie_outfile
-	elif side == "prefix":		
-		diff = maxnumberofpieces - numberofpieces
-		for columnno in range(maxnumberofpieces):
+		diff = maxnumberofpiecesRtoL - numberofpieces
+		for columnno in range(maxnumberofpiecesRtoL):
 			if columnno < diff:
 				thispiece = " "*maxlengthdict[columnno]
 			else:
-				thispiece = WordsBroken[thisword][columnno-diff]
-			print >>trie_outfile, thispiece," "*(maxlengthdict[columnno]-len(thispiece)),
-		print >>trie_outfile
+				thispiece = WordsBrokenRtoL[thisword][columnno-diff]
+			if columnno == maxnumberofpiecesRtoL-1 and numberofpieces == 0:
+				thispiece = thisword
+			print >>trieRtoL_outfile, " "*(maxlengthdict[columnno]-len(thispiece)), thispiece,
+		print >>trieRtoL_outfile
 		
+
+
 
  
 
 #---------------------------------------------------------------------------------#	
 #	Close output files
 #---------------------------------------------------------------------------------# 
-  
-trie_outfile.close()
+trieRtoL_outfile.close()  
+trieLtoR_outfile.close()
 SF_outfile.close()
+PF_outfile.close()
 #---------------------------------------------------------------------------------#	
 #	Logging information
 #---------------------------------------------------------------------------------# 
