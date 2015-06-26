@@ -1,6 +1,76 @@
 # -*- coding: <utf-16> -*- 
 unicode = True
 import codecs
+import argparse
+
+
+
+
+
+
+MinimumStemLength = 4
+SFthreshold = 3
+
+
+#----------------- command line parameters ------------------------------#
+#outfolder =""
+shortfilename =""
+myparser = argparse.ArgumentParser()
+myparser.add_argument("--language","--l", default="english", action='store', help="data language")
+myparser.add_argument("--infolder","--i", default="~/data/english", action='store', help="folder for data"),
+myparser.add_argument("--outfolder","--o",default="~/data/english", action='store', help="folder for output" )
+myparser.add_argument("--shortfilename","--s",default="english", action='store', help="short file name" )
+myparser.add_argument("--MinimumStemLength","--m",default="4", action='store', help="minimum stem length" )
+myparser.add_argument("--SFthreshold","--t",default="3", action='store', help="SF threshold" )
+myargs = myparser.parse_args()
+language = myargs.language
+print ("language" , language)
+#-----------------------------------------------------------------------#
+datafolder ="../../data/" +  language +"/"
+ngramfolder   		= datafolder    +  "ngrams/"
+outfolder     		= datafolder    + "lxa/"
+infolder 		= datafolder    + 'dx1/'	
+
+
+infilename 			= infolder  + myargs.shortfilename     + ".dx1"
+stemfilename 			= infolder  + myargs.shortfilename     + "_stems.txt"
+outfile_Signatures_name 	= outfolder + myargs.shortfilename     + "_Signatures.txt"  
+outfile_SigTransforms_name 	= outfolder + myargs.shortfilename     + "_SigTransforms.txt"
+outfile_FSA_name		= outfolder + myargs.shortfilename     + "_FSA.txt"
+outfile_FSA_graphics_name	= outfolder + myargs.shortfilename     + "_FSA_graphics.png"
+outfile_log_name 		= outfolder + myargs.shortfilename     + "_log.txt"
+
+outfile_SF_name 		= outfolder + myargs.shortfilename     + "_SF.txt"
+outfile_PF_name 		= outfolder + myargs.shortfilename     + "_PF.txt"
+outfile_trieLtoR_name 		= outfolder + myargs.shortfilename     + "_trieLtoR.txt"
+outfile_trieRtoL_name 		= outfolder + myargs.shortfilename     + "_trieRtoL.txt"
+
+
+
+print "Reading dx file: ", infilename
+
+lxalogfile = open(outfile_log_name, "w")
+print "Logging to ", outfile_log_name
+
+#-----------------------------------------------------------------------#
+ 
+MaximumAffixLength 	= 3
+MinimumNumberofSigUses 	= 10
+
+
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
 
 def lengthofcommonprefix (s1, s2):
 	length = len(s1)
@@ -43,36 +113,6 @@ from collections import defaultdict
 g_encoding =  "asci"  # "utf8"
  
 
-
-short_filename 		= "french"
-out_short_filename 	= "french"
-language		= "french"
-
-short_filename 		= "swahili"
-out_short_filename 	= "swahili"
-language		= "swahili"
-
-short_filename 		= "english2"
-out_short_filename 	= "english2"
-language		= "english"
-
-
-datafolder    		= "../../data/" 
-outfolder     		= datafolder + language + "/lxa/"
-infolder 		= datafolder + language + '/dx1/'	
-
-infilename 			= infolder  + short_filename     + ".dx1"
-stemfilename 			= infolder  + short_filename     + "_stems.txt"
-outfile_FSA_name		= outfolder + out_short_filename + "_FSA.txt"
-outfile_FSA_graphics_name	= outfolder + out_short_filename + "_FSA_graphics.png"
-outfile_log_name 		= outfolder + out_short_filename + "_log.txt"
- 
-outfile_SF_name 		= outfolder + out_short_filename + "_SF.txt"
-outfile_trieLtoR_name 		= outfolder + out_short_filename + "_trieLtoR.txt"
- 
-outfile_trieRtoL_name 		= outfolder + out_short_filename + "_trieRtoL.txt"
-outfile_PF_name 		= outfolder + out_short_filename + "_PF.txt"
-
 if g_encoding == "utf8":
 	print "yes utf8"
 else:
@@ -97,11 +137,6 @@ else:
 
 #----------------------------------------------------------#
  
-SFthreshold = 3
-
-MinimumStemLength 	= 4
-MaximumAffixLength 	= 3
-MinimumNumberofSigUses 	= 10
 
 print >>log_file, "Language: ", language
 print >>log_file, "Minimum Stem Length", MinimumStemLength, "\nMaximum Affix Length", MaximumAffixLength, "\n Minimum Number of Signature uses: ", MinimumNumberofSigUses
@@ -394,9 +429,9 @@ if (True):
 
 # ------------- Left to Right  ---------------------------------------------
 maxlength = 0
-maxlengthdict= dict()
+maxlengthdictLtoR= dict()
 for columnno in range(maxnumberofpiecesLtoR):
-	maxlengthdict[columnno] = 0
+	maxlengthdictLtoR[columnno] = 0
 
 # find out how large each morpheme slot needs to be for all the words...
 for i in range(len(wordlist)):	
@@ -405,8 +440,8 @@ for i in range(len(wordlist)):
 	thiswordnumberofpieces = len(thiswordparsed)
 	for j in range(thiswordnumberofpieces):
 		thispiece = thiswordparsed[j]
-		if len(thispiece) > maxlengthdict[j]:
-			maxlengthdict[j]= len(thispiece)
+		if len(thispiece) > maxlengthdictLtoR[j]:
+			maxlengthdictLtoR[j]= len(thispiece)
 	 
 for i in range(len(wordlist)):
 	thisword= wordlist[i]
@@ -416,11 +451,14 @@ for i in range(len(wordlist)):
 	else:
 		for j in range(len(WordsBrokenLtoR[thisword])):
 			thispiece = WordsBrokenLtoR[thisword][j]
-			print >>trieLtoR_outfile, thispiece," "*(maxlengthdict[j]-len(thispiece)),
+			print >>trieLtoR_outfile, thispiece," "*(maxlengthdictLtoR[j]-len(thispiece)),
 		print >>trieLtoR_outfile
  		
 #----------------- Right to Left --------------------------------------
-
+maxlength = 0
+maxlengthdictRtoL= dict()
+for columnno in range(maxnumberofpiecesRtoL):
+	maxlengthdictRtoL[columnno] = 0
 if (True):
 	# find out how large each morpheme slot needs to be for all the words...
 	for i in range(len(reversedwordlist)):	
@@ -431,8 +469,8 @@ if (True):
 		for j in range(thiswordnumberofpieces):
 			columnno = diff + j 
 			thispiece = thiswordparsed[j]
-			if len(thispiece) > maxlengthdict[columnno]:
-				maxlengthdict[columnno]= len(thispiece)
+			if len(thispiece) > maxlengthdictRtoL[columnno]:
+				maxlengthdictRtoL[columnno]= len(thispiece)
 	 
 	for i in range(len(reversedwordlist)):
 		thisword= reversedwordlist[i]
@@ -442,12 +480,12 @@ if (True):
 		diff = maxnumberofpiecesRtoL - numberofpieces
 		for columnno in range(maxnumberofpiecesRtoL):
 			if columnno < diff:
-				thispiece = " "*maxlengthdict[columnno]
+				thispiece = " "*maxlengthdictRtoL[columnno]
 			else:
 				thispiece = WordsBrokenRtoL[thisword][columnno-diff]
 			if columnno == maxnumberofpiecesRtoL-1 and numberofpieces == 0:
 				thispiece = thisword
-			print >>trieRtoL_outfile, " "*(maxlengthdict[columnno]-len(thispiece)), thispiece,
+			print >>trieRtoL_outfile, " "*(maxlengthdictRtoL[columnno]-len(thispiece)), thispiece,
 		print >>trieRtoL_outfile
 		
 
